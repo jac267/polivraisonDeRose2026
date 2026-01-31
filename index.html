@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livraisons de Roses</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        button, select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: white;
+            cursor: pointer;
+        }
+        button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .time-slot {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .time-slot h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .locals {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .local {
+            display: inline-block;
+            margin: 2px 4px 2px 0;
+            padding: 2px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+        .local:hover {
+            background-color: #e9e9e9;
+        }
+        .error {
+            color: red;
+            margin-bottom: 10px;
+        }
+        .no-data {
+            color: #666;
+            font-style: italic;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        #modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 4px;
+            max-width: 500px;
+            position: relative;
+        }
+        #close-modal {
+            float: right;
+            cursor: pointer;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Livraisons de Roses</h1>
+    <div class="controls">
+        <button id="pavillon-principal" class="active">Pavillon principal (A,B,C)</button>
+        <button id="pavillon-lassonde">Pavillon Lassonde (L,M)</button>
+        <button id="pavillon-fallback">Pavillon Fallback (autres)</button>
+        <select id="day-select"></select>
+        <button id="refresh">Rafraîchir</button>
+    </div>
+    <div id="error-message" class="error" style="display: none;"></div>
+    <div id="content"></div>
+    <div id="modal">
+        <div id="modal-content">
+            <span id="close-modal">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQyYJT1wbXG7RO48tUyxCIcrXM45s_pl3Q-VRLzehz_zQV2UBBb9nCIUnCPDjtO8HhgublZihdiQlSd/pub?gid=914010777&single=true&output=tsv';
+        let data = [];
+        let groups = {};
+        let pavillon = 'principal'; // 'principal' or 'lassonde'
+        let selectedDay = '';
+
+        function parseCSV(csvText) {
+            const lines = splitCSVLines(csvText);
+            if (lines.length < 1) return [];
+            const firstLine = lines[0];
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const semiCount = (firstLine.match(/;/g) || []).length;
+            const tabCount = (firstLine.match(/\t/g) || []).length;
+            const separators = {',': commaCount, ';': semiCount, '\t': tabCount};
+            const separator = Object.keys(separators).reduce((a, b) => separators[a] > separators[b] ? a : b);
+            const headers = parseCSVLine(firstLine, separator).map(h => h.trim().toLowerCase());
+            console.log('Headers:', headers);
+            const localIndex = headers.findIndex(h => h.includes('local'));
+            const jourIndex = headers.findIndex(h => h.includes('jour') || h.includes('date'));
+            const heureIndex = headers.findIndex(h => h.includes('heure') || h.includes('plage'));
+            const quantiteIndex = headers.findIndex(h => h.includes('quantité') || h.includes('quantite'));
+            const giverIndex = headers.findIndex(h => h.includes('donneur') || h.includes('expéditeur') || h.includes('acheteur') || h.includes('rouillard'));
+            const receiverIndex = headers.findIndex(h => h.includes('receveur') || h.includes('destinataire') || h.includes('grimont'));
+            const messageIndex = headers.findIndex(h => h.includes('message') || h.includes('poème') || h.includes('poeme') || h.includes('carte'));
+            const typeIndex = headers.findIndex(h => h.includes('type') || h.includes('chocolat') || h.includes('rose'));
+            const milkIndex = headers.findIndex(h => h.includes('lait'));
+            const anonymousIndex = headers.findIndex(h => h.includes('anonyme'));
+            const instructionsIndex = headers.findIndex(h => h.includes('instruction') || h.includes('livraison'));
+            const carteIndex = headers.findIndex(h => h.includes('carte'));
+            console.log('Indices:', { localIndex, jourIndex, heureIndex, quantiteIndex, giverIndex, receiverIndex, messageIndex, typeIndex, milkIndex, anonymousIndex, instructionsIndex, carteIndex });
+            if (localIndex === -1 || jourIndex === -1 || heureIndex === -1) {
+                throw new Error('Colonnes requises non trouvées dans le CSV.');
+            }
+            return lines.slice(1).map(line => {
+                const cols = parseCSVLine(line, separator);
+                const local = cols[localIndex]?.trim().toUpperCase() || '';
+                const jour = cols[jourIndex]?.trim() || '';
+                const heure = cols[heureIndex]?.trim() || '';
+                const quantite = quantiteIndex !== -1 ? parseInt(cols[quantiteIndex]?.trim()) || 1 : 1;
+                const giver = giverIndex !== -1 ? cols[giverIndex]?.trim() || 'N/A' : 'N/A';
+                const receiver = receiverIndex !== -1 ? cols[receiverIndex]?.trim() || 'N/A' : 'N/A';
+                const message = messageIndex !== -1 ? cols[messageIndex]?.trim() || 'N/A' : 'N/A';
+                const type = typeIndex !== -1 ? cols[typeIndex]?.trim() || 'N/A' : 'N/A';
+                const milk = milkIndex !== -1 ? cols[milkIndex]?.trim() || 'N/A' : 'N/A';
+                const anonymous = anonymousIndex !== -1 ? cols[anonymousIndex]?.trim() || 'N/A' : 'N/A';
+                const instructions = instructionsIndex !== -1 ? cols[instructionsIndex]?.trim() || 'N/A' : 'N/A';
+                const carte = carteIndex !== -1 ? cols[carteIndex]?.trim() || 'N/A' : 'N/A';
+                return { local, jour, heure, quantite, giver, receiver, message, type, milk, anonymous, instructions };
+            });
+        }
+
+        // Parse CSV line with custom separator
+        function parseCSVLine(line, separator = ',') {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        current += '"';
+                        i++; // skip next quote
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === separator && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        // Split CSV lines respecting quotes
+        function splitCSVLines(csvText) {
+            const lines = [];
+            let currentLine = '';
+            let inQuotes = false;
+            for (let i = 0; i < csvText.length; i++) {
+                const char = csvText[i];
+                if (char === '"') {
+                    if (inQuotes && csvText[i + 1] === '"') {
+                        currentLine += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === '\n' && !inQuotes) {
+                    lines.push(currentLine);
+                    currentLine = '';
+                } else {
+                    currentLine += char;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+            return lines;
+        }
+
+        // Normaliser local
+        function normalizeLocal(local) {
+            return local.replace(/\s+/g, '');
+        }
+
+        // Extraire pavillon
+        function getPavillon(local) {
+            const letter = local.split('-')[0];
+            if (['A', 'B', 'C'].includes(letter)) return 'principal';
+            if (['L', 'M'].includes(letter)) return 'lassonde';
+            return 'other';
+        }
+
+        // Parser heure pour tri
+        function parseTimeKey(heure) {
+            const match = heure.match(/(\d{1,2})[h:](\d{2})/);
+            if (match) {
+                return parseInt(match[1]) * 60 + parseInt(match[2]);
+            }
+            return 0;
+        }
+
+        // Trier locaux
+        function sortLocals(locals) {
+            return locals.sort((a, b) => {
+                const [aLetter, aNum] = a.split('-');
+                const [bLetter, bNum] = b.split('-');
+                if (aLetter !== bLetter) return aLetter.localeCompare(bLetter);
+                return parseFloat(aNum) - parseFloat(bNum);
+            });
+        }
+
+        // Grouper données
+        function groupData(data) {
+            const groups = {};
+            data.forEach(row => {
+                const pav = getPavillon(row.local);
+                if (!groups[pav]) groups[pav] = {};
+                if (!groups[pav][row.jour]) groups[pav][row.jour] = {};
+                if (!groups[pav][row.jour][row.heure]) groups[pav][row.jour][row.heure] = {};
+                const local = normalizeLocal(row.local);
+                if (!groups[pav][row.jour][row.heure][local]) {
+                    groups[pav][row.jour][row.heure][local] = { qty: 0, rows: [] };
+                }
+                groups[pav][row.jour][row.heure][local].qty += row.quantite;
+                groups[pav][row.jour][row.heure][local].rows.push(row);
+            });
+            return groups;
+        }
+
+        // Charger données
+        async function loadData() {
+            try {
+                document.getElementById('error-message').style.display = 'none';
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error('Erreur réseau');
+                const csvText = await response.text();
+                console.log('CSV Text:', csvText);
+                data = parseCSV(csvText);
+                console.log('Parsed data length:', data.length);
+                console.log('First data item:', data[0]);
+                groups = groupData(data);
+                populateDaySelect(groups);
+                displayData(groups);
+            } catch (error) {
+                document.getElementById('error-message').textContent = 'Erreur lors du chargement des données: ' + error.message + ' <button onclick="loadData()">Réessayer</button>';
+                document.getElementById('error-message').style.display = 'block';
+            }
+        }
+
+        // Peupler select jour
+        function populateDaySelect(groups) {
+            const select = document.getElementById('day-select');
+            select.innerHTML = '';
+            const days = Object.keys(groups[pavillon] || {}).sort();
+            days.forEach(day => {
+                const option = document.createElement('option');
+                option.value = day;
+                option.textContent = day;
+                select.appendChild(option);
+            });
+            if (days.includes(selectedDay)) {
+                select.value = selectedDay;
+            } else {
+                selectedDay = days[0] || '';
+                select.value = selectedDay;
+            }
+        }
+
+        // Afficher données
+        function displayData(groups) {
+            const content = document.getElementById('content');
+            content.innerHTML = '';
+            const pavData = groups[pavillon];
+            if (!pavData || !pavData[selectedDay]) {
+                content.innerHTML = '<p class="no-data">Aucune livraison pour ce filtre.</p>';
+                return;
+            }
+            const dayData = pavData[selectedDay];
+            const timeSlots = Object.keys(dayData).sort((a, b) => parseTimeKey(a) - parseTimeKey(b));
+            timeSlots.forEach(slot => {
+                const div = document.createElement('div');
+                div.className = 'time-slot';
+                div.innerHTML = `<h3>${slot}</h3>`;
+                const locals = Object.keys(dayData[slot]);
+                const sortedLocals = sortLocals(locals);
+                const list = sortedLocals.map(local => {
+                    const data = dayData[slot][local];
+                    const qty = data.qty;
+                    return `<span class="local">${qty > 1 ? `${local} x${qty}` : local}</span>`;
+                }).join(' ');
+                div.innerHTML += `<p class="locals">${list}</p>`;
+                content.appendChild(div);
+            });
+        }
+
+        // Événements
+        document.getElementById('pavillon-principal').addEventListener('click', () => {
+            pavillon = 'principal';
+            document.getElementById('pavillon-principal').classList.add('active');
+            document.getElementById('pavillon-lassonde').classList.remove('active');
+            document.getElementById('pavillon-fallback').classList.remove('active');
+            if (data.length) {
+                groups = groupData(data);
+                populateDaySelect(groups);
+                displayData(groups);
+            }
+        });
+        document.getElementById('pavillon-lassonde').addEventListener('click', () => {
+            pavillon = 'lassonde';
+            document.getElementById('pavillon-lassonde').classList.add('active');
+            document.getElementById('pavillon-principal').classList.remove('active');
+            document.getElementById('pavillon-fallback').classList.remove('active');
+            if (data.length) {
+                groups = groupData(data);
+                populateDaySelect(groups);
+                displayData(groups);
+            }
+        });
+        document.getElementById('pavillon-fallback').addEventListener('click', () => {
+            pavillon = 'other';
+            document.getElementById('pavillon-fallback').classList.add('active');
+            document.getElementById('pavillon-principal').classList.remove('active');
+            document.getElementById('pavillon-lassonde').classList.remove('active');
+            if (data.length) {
+                groups = groupData(data);
+                populateDaySelect(groups);
+                displayData(groups);
+            }
+        });
+        document.getElementById('day-select').addEventListener('change', (e) => {
+            selectedDay = e.target.value;
+            if (data.length) {
+                groups = groupData(data);
+                displayData(groups);
+            }
+        });
+        document.getElementById('refresh').addEventListener('click', loadData);
+
+        // Événements pour les locaux
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('local')) {
+                const localText = e.target.textContent;
+                const local = localText.split(' x')[0];
+                const slotElement = e.target.closest('.time-slot');
+                const slot = slotElement.querySelector('h3').textContent;
+                const localData = groups[pavillon][selectedDay][slot][local];
+                if (localData) {
+                    const modalBody = document.getElementById('modal-body');
+                    modalBody.innerHTML = `<h2>Détails pour ${local}</h2><p>Quantité totale: ${localData.qty}</p>`;
+                    localData.rows.forEach(row => {
+                        modalBody.innerHTML += `
+                            <p><strong>De:</strong> ${row.giver}</p>
+                            <p><strong>À:</strong> ${row.receiver}</p>
+                            <p><strong>Type:</strong> ${row.type}</p>
+                            <p><strong>Lait:</strong> ${row.milk}</p>
+                            <p><strong>Anonyme:</strong> ${row.anonymous}</p>
+                            <p><strong>Instructions:</strong> ${row.instructions}</p>
+                            <p><strong>Carte:</strong> ${row.carte}</p>
+                            <p><strong>Message:</strong> <pre>${row.message}</pre></p>
+                            <hr>
+                        `;
+                    });
+                    document.getElementById('modal').style.display = 'block';
+                }
+            }
+        });
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('modal').style.display = 'none';
+        });
+
+        // Chargement initial
+        loadData();
+    </script>
+</body>
+</html>
