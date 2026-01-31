@@ -1,0 +1,95 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  background-color: #f9f9f9;
+}
+
+.controls {
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+button,
+select {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+}
+
+button.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.time-slot {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.time-slot h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.locals {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.local {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 2px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  cursor: pointer;
+}
+
+.local:hover {
+  background-color: #e9e9e9;
+}
+
+.error {
+  color: red;
+  margin-bottom: 10px;
+}
+
+.no-data {
+  color: #666;
+  font-style: italic;
+}
+
+#modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+#modal-content {
+  background: white;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 4px;
+  max-width: 500px;
+  position: relative;
+}
+
+#close-modal {
+  float: right;
+  cursor: pointer;
+  font-size: 24px;
+}
