@@ -296,9 +296,20 @@ function displayData(groups) {
   );
 
   timeSlots.forEach((slot) => {
-    const div = document.createElement("div");
-    div.className = "time-slot";
-    div.innerHTML = `<h3>${slot}</h3>`;
+    const parentDiv = document.createElement("div");
+    const slotDiv = document.createElement("div");
+    const resumeDiv = document.createElement("div");
+
+    parentDiv.className = "time-slot";
+    slotDiv.innerHTML = `<h3>${slot}</h3>`;
+    console.log("pav data");
+    const resumeTimeSlotData = resumeTimeSlot(dayData[slot]);
+    resumeDiv.className = "resume-slot";
+    resumeDiv.innerHTML = `<p>${resumeTimeSlotData.nbroses} 🌹, ${resumeTimeSlotData.cartes} 🎴</p>
+                            <p>${resumeTimeSlotData.chocolat.Amandes != 0 ? `${resumeTimeSlotData.chocolat.Amandes} Almond` : ""}
+                            ${resumeTimeSlotData.chocolat.Lait != 0 ? `${resumeTimeSlotData.chocolat.Lait} Milk` : ""}</p>
+                            <p>${resumeTimeSlotData.chocolat["Noir Queen"] != 0 ? `${resumeTimeSlotData.chocolat["Noir Queen"]} Noir Queen` : ""}
+                            ${resumeTimeSlotData.chocolat["Sel de mer"] != 0 ? `${resumeTimeSlotData.chocolat["Sel de mer"]} Sel de mer` : ""}</p>`;
 
     const locals = Object.keys(dayData[slot]);
     const sortedLocals = sortLocals(locals);
@@ -311,9 +322,43 @@ function displayData(groups) {
       })
       .join(" ");
 
-    div.innerHTML += `<p class="locals">${list}</p>`;
-    content.appendChild(div);
+    slotDiv.innerHTML += `<p class="locals">${list}</p>`;
+    parentDiv.appendChild(slotDiv);
+    parentDiv.appendChild(resumeDiv);
+    content.appendChild(parentDiv);
   });
+}
+
+function resumeTimeSlot(dayDataslot) {
+  const output = {
+    nbroses: 0,
+    chocolat: { Lait: 0, "Noir Queen": 0, Amandes: 0, "Sel de mer": 0 },
+    cartes: 0,
+  };
+  for (const [local, data] of Object.entries(dayDataslot)) {
+    for (const row of data.rows) {
+      const isCarte = row.carte;
+      const isChocolat = row.chocolat;
+      const nbChocolat = row.quantite;
+      const nbRoses = row.nbroses;
+
+      try {
+        if (nbRoses != "N/A") output.nbroses += parseInt(nbRoses);
+      } catch {
+        console.log("Nb of roses was not a parseable");
+      }
+      try {
+        console.log(isChocolat);
+        if (isChocolat != "N/A")
+          output.chocolat[isChocolat] += parseInt(nbChocolat);
+      } catch {
+        console.log("Nb of chocolates was not a parseable");
+      }
+
+      if (isCarte == "Oui") output.cartes += 1;
+    }
+  }
+  return output;
 }
 
 // Boutons pavillons
@@ -384,7 +429,7 @@ document.addEventListener("click", (e) => {
 
       localData.rows.forEach((row) => {
         modalBody.innerHTML += `
-        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non validée/payée)"}: ${row.nbroses}🌹  ${row.chocolat != "N/A" ? `, ${row.quantite} ${row.chocolat}` : ""} ${row.carte == "Oui" ? ", 1🎴" : ""} </h3>
+        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹  ${row.chocolat != "N/A" ? `, ${row.quantite} ${row.chocolat}` : ""} ${row.carte == "Oui" ? ", 1🎴" : ""} </h3>
           <p><strong>De:</strong> ${row.giver} ${row.anonymous == "Oui" ? "<strong style='color: red;'>(ANONYME)</strong>" : ""}</p>
           <p><strong>À:</strong> ${row.receiver}</p>
           <p><strong>Instructions:</strong> ${row.instructions}</p>
