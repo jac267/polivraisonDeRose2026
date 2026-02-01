@@ -201,10 +201,16 @@ function parseTimeKey(heure) {
 // Trier locaux
 function sortLocals(locals) {
   return locals.sort((a, b) => {
-    const [aLetter, aNum] = a.split("-");
-    const [bLetter, bNum] = b.split("-");
-    if (aLetter !== bLetter) return aLetter.localeCompare(bLetter);
-    return parseFloat(aNum) - parseFloat(bNum);
+    const na = parseInt(a.replace(/\D/g, ""), 10);
+    const nb = parseInt(b.replace(/\D/g, ""), 10);
+
+    // Lassonde = décroissant
+    if (pavillon === "lassonde") {
+      return nb - na;
+    }
+
+    // Principal (et autres) = croissant
+    return na - nb;
   });
 }
 
@@ -259,32 +265,20 @@ async function loadData() {
     el.style.display = "block";
   }
 }
-
+function extractDayNumber(str) {
+  // "Jeudi 13 février" -> 13
+  const m = str.match(/\b(\d{1,2})\b/);
+  return m ? parseInt(m[1], 10) : 999;
+}
 // Peupler select jour
 function populateDaySelect(groups) {
-  const DAYS_ORDER = [
-    "Lundi",
-    "Mardi",
-    "Mercredi",
-    "Jeudi",
-    "Vendredi",
-    "Samedi",
-    "Dimanche",
-  ];
-
   const select = document.getElementById("day-select");
   select.innerHTML = "";
 
   const days = Object.keys(groups[pavillon] || {}).sort((a, b) => {
-    const ia = DAYS_ORDER.indexOf(a.toLowerCase());
-    const ib = DAYS_ORDER.indexOf(b.toLowerCase());
-
-    // Si un jour est inconnu, on le met à la fin
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-
-    return ia - ib;
+    return extractDayNumber(a) - extractDayNumber(b);
   });
+  console.log(days);
   days.forEach((day) => {
     const option = document.createElement("option");
     option.value = day;
@@ -444,7 +438,7 @@ document.addEventListener("click", (e) => {
 
       localData.rows.forEach((row) => {
         modalBody.innerHTML += `<div class="modal-div">
-        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹  ${row.chocolat != "N/A" ? `, ${row.quantite}&nbsp;${row.chocolat}` : ""} ${row.carte == "Oui" ? ", 1&nbsp;🎴" : ""} </h3>
+        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹 ${row.carte == "Oui" ? ", 1&nbsp;🎴" : ""} ${row.chocolat != "N/A" ? `, ${row.quantite}&nbsp;${row.chocolat}` : ""}</h3>
           <p><strong>De:</strong> ${row.giver} ${row.anonymous == "Oui" ? "<strong style='color: red;'>(ANONYME)</strong>" : ""}</p>
           <p><strong>À:</strong> ${row.receiver}</p>
           <p><strong>Instructions:</strong> ${row.instructions}</p>
