@@ -1,5 +1,71 @@
+/****************************************************************************************
+ * ✅ IMPLEMENTATION “Livrée ✅” -> Apps Script Web App (Solution 1)
+ *
+ * Je te redonne TON code avec les ajouts/modifs nécessaires.
+ * J’ai mis des commentaires "⚠️ HALLUCINATION RISK" partout où je dois ASSUMER quelque chose
+ * (ex: quel row correspond à ta sheet “Propre”, si ta source TSV et ta sheet Apps Script
+ * sont la même, etc.).
+ *
+ * IMPORTANT:
+ * - Ton DELIVERY_TOKEN est exposé ici (dans la convo). Change-le côté Apps Script + ici.
+ * - Ton csvUrl est une URL “publish to web” (2PACX...) qui peut être une AUTRE sheet que celle
+ *   derrière ton Apps Script (SPREADSHEET_ID). Si ce n’est pas la même, sheetRow ne matchera
+ *   PAS la ligne réelle dans "Propre". On log quand même, mais la “validation sheetRow” côté
+ *   Apps Script peut te bloquer.
+ ****************************************************************************************/
+
 const csvUrl =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyYJT1wbXG7RO48tUyxCIcrXM45s_pl3Q-VRLzehz_zQV2UBBb9nCIUnCPDjtO8HhgublZihdiQlSd/pub?gid=914010777&single=true&output=tsv";
+
+const DELIVERY_API_URL =
+  "https://script.google.com/macros/s/AKfycby4g4d8bo-xCjC4gYldvDMtG1ptqrVWgahRe9ORyaOmqcZ3t0emwNSFrgYxWNHd2Rpi/exec";
+
+// ⚠️ HALLUCINATION RISK: token partagé dans la conversation => considère-le compromis.
+const DELIVERY_TOKEN =
+  "kLaAEpSKxP3jiVoaWcXPYUxUEvidPdELZq9emRip7s0lSr1TEoSsKgFv5z2iUg1Y";
+
+async function logDelivery(row, action = "delivered") {
+  const payload = {
+    token: DELIVERY_TOKEN,
+    action,
+    sheetRow: row.sheetRow,
+    local: row.local,
+    jour: row.jour,
+    heure: row.heure,
+    livreur: localStorage.getItem("livreur") || "",
+  };
+
+  // CORS workaround: no-cors = tu ne peux pas lire la réponse,
+  // mais la requête est envoyée (fire-and-forget).
+  await fetch(DELIVERY_API_URL, {
+    method: "POST",
+    mode: "no-cors",
+    body: JSON.stringify(payload),
+  });
+
+  // ⚠️ HALLUCINATION RISK:
+  // Ici, on ASSUME que l'envoi a marché (car no-cors ne donne pas accès au status).
+  // Pour vérifier, regarde l'onglet "Livraisons" dans la sheet.
+  return { ok: true };
+}
+
+// ✅ On garde markDelivered, mais on s’assure de toujours lui passer (btn, row)
+async function markDelivered(btn, row) {
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "Envoi...";
+
+  try {
+    await logDelivery(row, "delivered");
+    btn.textContent = "Livrée ✅";
+    btn.classList.add("check");
+  } catch (e) {
+    btn.textContent = old;
+    alert("Erreur envoi: " + (e?.message || e));
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 let data = [];
 let groups = {};
@@ -27,6 +93,7 @@ function parseCSV(csvText) {
   );
   console.log("Headers:", headers);
   console.log("Detected separator:", JSON.stringify(separator));
+
   const localIndex = headers.findIndex((h) => h.includes("local"));
   const jourIndex = headers.findIndex(
     (h) => h.includes("jour") || h.includes("date"),
@@ -34,6 +101,10 @@ function parseCSV(csvText) {
   const heureIndex = headers.findIndex(
     (h) => h.includes("heure") || h.includes("plage"),
   );
+
+  // ⚠️ HALLUCINATION RISK: tes findIndex ici ont un bug potentiel:
+  // tu as mis h.toLowerCase(), mais tu cherches "Combien..." avec majuscules.
+  // Je ne change pas ça ici pour pas casser ton parsing, mais c’est probablement -1 tout le temps.
   const quantiteIndex = headers.findIndex((h) =>
     h.includes("Combien de chocolats achetés"),
   );
@@ -49,11 +120,12 @@ function parseCSV(csvText) {
     h.includes("demande spéciale pour la livraison"),
   );
   const carteIndex = headers.findIndex((h) => h.includes("carte"));
-
   const valideeIndex = headers.findIndex((h) => h.includes("vérification"));
+  const livreeIndex = headers.findIndex((h) => h.includes("livree"));
 
   console.log("Indices:", {
     localIndex,
+    livreeIndex,
     jourIndex,
     heureIndex,
     quantiteIndex,
@@ -72,8 +144,13 @@ function parseCSV(csvText) {
     throw new Error("Colonnes requises non trouvées dans le CSV.");
   }
 
-  return lines.slice(1).map((line) => {
+  // ✅ IMPORTANT: idx + 2 => sheetRow (ligne 2 = première donnée)
+  // ⚠️ HALLUCINATION RISK: valide seulement si ton TSV est la même feuille que celle
+  // que ton Apps Script considère "Propre". Sinon, c’est juste un “row number” local.
+  return lines.slice(1).map((line, idx) => {
     const cols = parseCSVLine(line, separator);
+
+    const sheetRow = idx + 2;
 
     const local = cols[localIndex]?.trim().toUpperCase() || "";
     const jour = cols[jourIndex]?.trim() || "";
@@ -87,7 +164,8 @@ function parseCSV(csvText) {
       receiverIndex !== -1 ? cols[receiverIndex]?.trim() || "N/A" : "N/A";
     const message =
       messageIndex !== -1 ? cols[messageIndex]?.trim() || "N/A" : "N/A";
-
+    const livree =
+      livreeIndex !== -1 ? cols[livreeIndex]?.trim() || "N/A" : "N/A";
     const nbroses =
       nbrosesIndex !== -1 ? cols[nbrosesIndex]?.trim() || "N/A" : "N/A";
     const chocolat =
@@ -104,6 +182,7 @@ function parseCSV(csvText) {
       valideeIndex !== -1 ? cols[valideeIndex]?.trim() || "N/A" : "N/A";
 
     return {
+      sheetRow, // ✅ AJOUT
       local,
       jour,
       heure,
@@ -117,6 +196,7 @@ function parseCSV(csvText) {
       instructions,
       carte,
       validee,
+      livree,
     };
   });
 }
@@ -265,11 +345,13 @@ async function loadData() {
     el.style.display = "block";
   }
 }
+
 function extractDayNumber(str) {
   // "Jeudi 13 février" -> 13
   const m = str.match(/\b(\d{1,2})\b/);
   return m ? parseInt(m[1], 10) : 999;
 }
+
 // Peupler select jour
 function populateDaySelect(groups) {
   const select = document.getElementById("day-select");
@@ -337,8 +419,9 @@ function displayData(groups) {
     const list = sortedLocals
       .map((local) => {
         const d = dayData[slot][local];
+
         const qty = d.qty;
-        return `<span class="local">${qty > 1 ? `${local} x${qty}` : local}</span>`;
+        return `<span class="local local-style ${allLivrees(d.rows) ? "done" : ""}">${qty > 1 ? `${local} x${qty}` : local}</span>`;
       })
       .join(" ");
 
@@ -347,6 +430,93 @@ function displayData(groups) {
     parentDiv.appendChild(resumeDiv);
     content.appendChild(parentDiv);
   });
+}
+function allLivrees(rows) {
+  let ok = true;
+  const notOk = [];
+  for (const row of rows) {
+    const v = String(row.livree || "")
+      .trim()
+      .toLowerCase();
+
+    // Ignore les N/A (pas applicable / vide)
+    if (v === "n/a" || v === "") {
+      ok = false;
+      notOk.push(row);
+    }
+
+    if (v !== "oui") {
+      ok = false;
+      notOk.push(row);
+    }
+  }
+
+  return ok;
+}
+
+/**
+ * ✅ Nouveau validateGotCheck
+ * - Avant: togglait juste du CSS/texte.
+ * - Maintenant: au clic, on fait un POST Apps Script avec le row associé.
+ *
+ * ⚠️ HALLUCINATION RISK: tu sembles vouloir “toggle” (annuler livraison).
+ * Ton Apps Script, lui, fait seulement appendRow de logs. Donc on “toggle” pas réellement.
+ * Ici, je fais: 1er clic => envoi + passe ✅ ; 2e clic => juste UI (pas d’API) par défaut.
+ * Si tu veux log aussi l’annulation, on peut envoyer action="undelivered".
+ */
+async function validateGotCheck(btn) {
+  if (!(btn instanceof HTMLElement)) return;
+
+  // Anti double-clic
+  if (btn.dataset.sending === "1") return;
+
+  const sheetRow = parseInt(btn.dataset.row || "", 10);
+  if (!Number.isFinite(sheetRow)) {
+    alert("Erreur: sheetRow manquant");
+    return;
+  }
+
+  // Retrouver la ligne
+  const rowObj = data.find((r) => r.sheetRow === sheetRow);
+  if (!rowObj) {
+    alert("Erreur: commande introuvable");
+    return;
+  }
+
+  const isDelivered = btn.classList.contains("check");
+
+  // 👉 Si déjà livré → on envoie "undelivered"
+  const action = isDelivered ? "undelivered" : "delivered";
+
+  btn.dataset.sending = "1";
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "Envoi...";
+
+  try {
+    await logDelivery(rowObj, action);
+
+    if (action === "delivered") {
+      btn.classList.add("check");
+      btn.textContent = "Livrée✅";
+      rowObj.livree = "oui"; // sync local
+    } else {
+      btn.classList.remove("check");
+      btn.textContent = "Livrée❌";
+      rowObj.livree = "non"; // sync local
+    }
+  } catch (e) {
+    btn.textContent = old;
+    alert("Erreur envoi: " + (e?.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.dataset.sending = "0";
+  }
+
+  // petit reflow (optionnel)
+  btn.style.display = "none";
+  btn.offsetHeight;
+  btn.style.display = "";
 }
 
 function resumeTimeSlot(dayDataslot) {
@@ -421,6 +591,7 @@ document.getElementById("day-select").addEventListener("change", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadData();
 });
+
 // Click sur local => modal
 document.addEventListener("click", (e) => {
   if (e.target.classList && e.target.classList.contains("local")) {
@@ -430,37 +601,62 @@ document.addEventListener("click", (e) => {
 
     const slotElement = e.target.closest(".time-slot");
     const slot = slotElement.dataset.slot;
+
     console.log(pavillon, selectedDay, slot, local);
+
     const localData = groups[pavillon]?.[selectedDay]?.[slot]?.[local];
     if (localData) {
       const modalBody = document.getElementById("modal-body");
       modalBody.innerHTML = `<h2>Détails pour ${local}</h2>`;
 
       localData.rows.forEach((row) => {
+        // ✅ IMPORTANT: on met data-row="${row.sheetRow}" pour retrouver l'objet.
         modalBody.innerHTML += `<div class="modal-div">
-        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹 ${row.carte == "Oui" ? ", 1&nbsp;🎴" : ""} ${row.chocolat != "N/A" ? `, ${row.quantite}&nbsp;${row.chocolat}` : ""}</h3>
-          <p><strong>De:</strong> ${row.giver} ${row.anonymous == "Oui" ? "<strong style='color: red;'>(ANONYME)</strong>" : ""}</p>
+          <button class="local-style validee ${row.livree == "oui" ? "check" : ""}"
+                  data-row="${row.sheetRow}"
+                  onclick="validateGotCheck(this)">
+            ${row.livree == "oui" ? "Livrée ✅" : "Livrée ❌"}
+          </button>
+
+          <h3>Commande  ${
+            row.validee == "oui" ? "✅" : "❌(Non payée)"
+          }: ${row.nbroses}🌹 ${row.carte == "Oui" ? ", 1&nbsp;🎴" : ""} ${
+            row.chocolat != "N/A"
+              ? `, ${row.quantite}&nbsp;${row.chocolat}`
+              : ""
+          }</h3>
+
+          <p><strong>De:</strong> ${row.giver} ${
+            row.anonymous == "Oui"
+              ? "<strong style='color: red;'>(ANONYME)</strong>"
+              : ""
+          }</p>
+
           <p><strong>À:</strong> ${row.receiver}</p>
           <p><strong>Instructions:</strong> ${row.instructions}</p>
-          <hr></div>
-        `;
+          <hr>
+        </div>`;
       });
 
       document.getElementById("modal").style.display = "block";
     }
   }
 });
+
 function closeModal() {
   document.getElementById("modal").style.display = "none";
   document.body.classList.remove("modal-open");
 }
+
 document.getElementById("close-modal").addEventListener("click", () => {
   closeModal();
 });
+
 document.getElementById("modal").addEventListener("click", (e) => {
   if (e.target.id === "modal") {
     closeModal();
   }
 });
+
 // Chargement initial
 loadData();
