@@ -3,8 +3,10 @@ const csvUrl =
 
 let data = [];
 let groups = {};
-let pavillon = "principal"; // 'principal' | 'lassonde' | 'other'
-let selectedDay = "";
+
+let pavillon = localStorage.getItem("pavillon") || "principal"; // 'principal' | 'lassonde' | 'other'
+document.getElementById(`pavillon-${pavillon}`).className = "active";
+let selectedDay = localStorage.getItem("selectedDay");
 
 function parseCSV(csvText) {
   const lines = splitCSVLines(csvText);
@@ -185,6 +187,7 @@ function getPavillon(local) {
   const letter = local.split("-")[0];
   if (["A", "B", "C"].includes(letter)) return "principal";
   if (["L", "M"].includes(letter)) return "lassonde";
+
   return "other";
 }
 
@@ -266,10 +269,13 @@ function populateDaySelect(groups) {
   days.forEach((day) => {
     const option = document.createElement("option");
     option.value = day;
-    option.textContent = day;
+    option.textContent = day.split(" ")[0];
     select.appendChild(option);
   });
-
+  select.addEventListener("change", () => {
+    localStorage.setItem("selectedDay", select.value);
+    console.log("Saved:", select.value);
+  });
   if (days.includes(selectedDay)) {
     select.value = selectedDay;
   } else {
@@ -297,12 +303,13 @@ function displayData(groups) {
 
   timeSlots.forEach((slot) => {
     const parentDiv = document.createElement("div");
+    parentDiv.dataset.slot = slot;
     const slotDiv = document.createElement("div");
     const resumeDiv = document.createElement("div");
 
     parentDiv.className = "time-slot";
-    slotDiv.innerHTML = `<h3>${slot}</h3>`;
-    console.log("pav data");
+    const timeIntervale = slot.split("-");
+    slotDiv.innerHTML = `<h3>${timeIntervale[0]}-${timeIntervale[timeIntervale.length - 1]}</h3>`;
     const resumeTimeSlotData = resumeTimeSlot(dayData[slot]);
     resumeDiv.className = "resume-slot";
     resumeDiv.innerHTML = `<p>${resumeTimeSlotData.nbroses} 🌹, ${resumeTimeSlotData.cartes} 🎴</p>
@@ -364,9 +371,10 @@ function resumeTimeSlot(dayDataslot) {
 // Boutons pavillons
 document.getElementById("pavillon-principal").addEventListener("click", () => {
   pavillon = "principal";
+
+  localStorage.setItem("pavillon", pavillon);
   document.getElementById("pavillon-principal").classList.add("active");
   document.getElementById("pavillon-lassonde").classList.remove("active");
-  document.getElementById("pavillon-fallback").classList.remove("active");
 
   if (data.length) {
     groups = groupData(data);
@@ -377,22 +385,9 @@ document.getElementById("pavillon-principal").addEventListener("click", () => {
 
 document.getElementById("pavillon-lassonde").addEventListener("click", () => {
   pavillon = "lassonde";
+  localStorage.setItem("pavillon", pavillon);
   document.getElementById("pavillon-lassonde").classList.add("active");
   document.getElementById("pavillon-principal").classList.remove("active");
-  document.getElementById("pavillon-fallback").classList.remove("active");
-
-  if (data.length) {
-    groups = groupData(data);
-    populateDaySelect(groups);
-    displayData(groups);
-  }
-});
-
-document.getElementById("pavillon-fallback").addEventListener("click", () => {
-  pavillon = "other";
-  document.getElementById("pavillon-fallback").classList.add("active");
-  document.getElementById("pavillon-principal").classList.remove("active");
-  document.getElementById("pavillon-lassonde").classList.remove("active");
 
   if (data.length) {
     groups = groupData(data);
@@ -410,8 +405,9 @@ document.getElementById("day-select").addEventListener("change", (e) => {
   }
 });
 
-document.getElementById("refresh").addEventListener("click", loadData);
-
+document.addEventListener("DOMContentLoaded", () => {
+  loadData();
+});
 // Click sur local => modal
 document.addEventListener("click", (e) => {
   if (e.target.classList && e.target.classList.contains("local")) {
@@ -419,21 +415,20 @@ document.addEventListener("click", (e) => {
     const local = localText.split(" x")[0];
 
     const slotElement = e.target.closest(".time-slot");
-    const slot = slotElement.querySelector("h3").textContent;
-
+    const slot = slotElement.dataset.slot;
+    console.log(pavillon, selectedDay, slot, local);
     const localData = groups[pavillon]?.[selectedDay]?.[slot]?.[local];
-
     if (localData) {
       const modalBody = document.getElementById("modal-body");
       modalBody.innerHTML = `<h2>Détails pour ${local}</h2>`;
 
       localData.rows.forEach((row) => {
-        modalBody.innerHTML += `
+        modalBody.innerHTML += `<div class="modal-div">
         <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹  ${row.chocolat != "N/A" ? `, ${row.quantite} ${row.chocolat}` : ""} ${row.carte == "Oui" ? ", 1🎴" : ""} </h3>
           <p><strong>De:</strong> ${row.giver} ${row.anonymous == "Oui" ? "<strong style='color: red;'>(ANONYME)</strong>" : ""}</p>
           <p><strong>À:</strong> ${row.receiver}</p>
           <p><strong>Instructions:</strong> ${row.instructions}</p>
-          <hr>
+          <hr></div>
         `;
       });
 

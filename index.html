@@ -7,15 +7,16 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <h1>Livraisons de Roses</h1>
+  <h1>PoLivraisons de Roses</h1>
 
-  <div class="controls">
-    <button id="pavillon-principal" class="active">Pavillon principal (A,B,C)</button>
-    <button id="pavillon-lassonde">Pavillon Lassonde (L,M)</button>
-    <button id="pavillon-fallback">Pavillon Fallback (autres)</button>
-    <select id="day-select"></select>
-    <button id="refresh">Rafraîchir</button>
+  <div style="display: flex; align-items: center;margin-bottom: 18px;">
+    <div class="controls">
+    <button id="pavillon-principal">Principal</button>
+    <button id="pavillon-lassonde">Lassonde</button>
   </div>
+  <select id="day-select"></select>
+</div>
+  
 
   <div id="error-message" class="error" style="display: none;"></div>
   <div id="content"></div>
