@@ -331,11 +331,11 @@ function displayData(groups) {
     slotDiv.innerHTML = `<h3>${timeIntervale[0]}-${timeIntervale[timeIntervale.length - 1]}</h3>`;
     const resumeTimeSlotData = resumeTimeSlot(dayData[slot]);
     resumeDiv.className = "resume-slot";
-    resumeDiv.innerHTML = `<p>${resumeTimeSlotData.nbroses} 🌹, ${resumeTimeSlotData.cartes} 🎴</p>
-                            <p>${resumeTimeSlotData.chocolat.Amandes != 0 ? `${resumeTimeSlotData.chocolat.Amandes} Almond` : ""}
-                            ${resumeTimeSlotData.chocolat.Lait != 0 ? `${resumeTimeSlotData.chocolat.Lait} Milk` : ""}</p>
-                            <p>${resumeTimeSlotData.chocolat["Noir Queen"] != 0 ? `${resumeTimeSlotData.chocolat["Noir Queen"]} Noir Queen` : ""}
-                            ${resumeTimeSlotData.chocolat["Sel de mer"] != 0 ? `${resumeTimeSlotData.chocolat["Sel de mer"]} Sel de mer` : ""}</p>`;
+    resumeDiv.innerHTML = `<p>  ${resumeTimeSlotData.nbroses}&nbsp;🌹 ${resumeTimeSlotData.cartes}&nbsp;💌</p>
+                            <p>  ${resumeTimeSlotData.chocolat.Amandes != 0 ? `${resumeTimeSlotData.chocolat.Amandes}&nbsp;Almond` : ""}
+                             ${resumeTimeSlotData.chocolat.Lait != 0 ? `${resumeTimeSlotData.chocolat.Lait}&nbsp;Milk` : ""}</p>
+                            <p>  ${resumeTimeSlotData.chocolat["Noir Queen"] != 0 ? `${resumeTimeSlotData.chocolat["Noir Queen"]}&nbsp;Noir&nbsp;Queen` : ""}
+                              ${resumeTimeSlotData.chocolat["Sel de mer"] != 0 ? `${resumeTimeSlotData.chocolat["Sel de mer"]}&nbsp;Sel&nbsp;de&nbsp;mer` : ""}</p>`;
 
     const locals = Object.keys(dayData[slot]);
     const sortedLocals = sortLocals(locals);
@@ -444,7 +444,7 @@ document.addEventListener("click", (e) => {
 
       localData.rows.forEach((row) => {
         modalBody.innerHTML += `<div class="modal-div">
-        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹  ${row.chocolat != "N/A" ? `, ${row.quantite} ${row.chocolat}` : ""} ${row.carte == "Oui" ? ", 1🎴" : ""} </h3>
+        <h3>Commande  ${row.validee == "oui" ? "✅" : "❌(Non payée)"}: ${row.nbroses}🌹  ${row.chocolat != "N/A" ? `, ${row.quantite}&nbsp;${row.chocolat}` : ""} ${row.carte == "Oui" ? ", 1&nbsp;🎴" : ""} </h3>
           <p><strong>De:</strong> ${row.giver} ${row.anonymous == "Oui" ? "<strong style='color: red;'>(ANONYME)</strong>" : ""}</p>
           <p><strong>À:</strong> ${row.receiver}</p>
           <p><strong>Instructions:</strong> ${row.instructions}</p>

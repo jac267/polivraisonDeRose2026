@@ -268,10 +268,14 @@ h1 {
    - Works on <button> and <select>
    =========================================== */
 .resume-slot {
-  width: 150px;
+  width: fit-content;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: end;
+  height: 100%;
+}
+.resume-slot p {
+  margin: 0px;
 }
 .controls button,
 select {
@@ -324,8 +328,8 @@ select option {
 .controls button:hover,
 select:hover {
   transform: translateY(-1px);
-  filter: drop-shadow(7px 7px 0 rgba(0, 0, 0, 0.55))
-    drop-shadow(0 0 14px rgba(239, 25, 129, 0.35));
+  filter: drop-shadow(7px 7px 0 rgba(0, 0, 0, 0.55));
+  box-shadow: 0 0 20px rgba(239, 25, 129, 0.8);
 }
 
 /* Pressed */
@@ -337,8 +341,8 @@ select:active {
 
 /* Active tab (selected) */
 .controls button.active {
-  filter: drop-shadow(6px 6px 0 rgba(0, 0, 0, 0.8))
-    drop-shadow(0 0 20px rgba(239, 25, 129, 1));
+  filter: drop-shadow(6px 6px 0 rgba(0, 0, 0, 0.8));
+  box-shadow: 0 0 20px rgba(239, 25, 129, 0.8);
 }
 
 /* Focus accessibility */
