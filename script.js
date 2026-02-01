@@ -519,11 +519,6 @@ async function validateGotCheck(btn) {
     btn.disabled = false;
     btn.dataset.sending = "0";
   }
-
-  // petit reflow (optionnel)
-  btn.style.display = "none";
-  btn.offsetHeight;
-  btn.style.display = "";
 }
 
 function resumeTimeSlot(dayDataslot) {
