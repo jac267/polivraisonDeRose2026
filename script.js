@@ -21,8 +21,15 @@ const DELIVERY_API_URL =
   "https://script.google.com/macros/s/AKfycby4g4d8bo-xCjC4gYldvDMtG1ptqrVWgahRe9ORyaOmqcZ3t0emwNSFrgYxWNHd2Rpi/exec";
 
 // ⚠️ HALLUCINATION RISK: token partagé dans la conversation => considère-le compromis.
-const DELIVERY_TOKEN =
-  "kLaAEpSKxP3jiVoaWcXPYUxUEvidPdELZq9emRip7s0lSr1TEoSsKgFv5z2iUg1Y";
+let DELIVERY_TOKEN = localStorage.getItem("APIKEY");
+
+if (!DELIVERY_TOKEN) {
+  DELIVERY_TOKEN = prompt("API KEY :");
+
+  if (DELIVERY_TOKEN) {
+    localStorage.setItem("APIKEY", DELIVERY_TOKEN);
+  }
+}
 
 async function logDelivery(row, action = "delivered") {
   const payload = {
