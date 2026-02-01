@@ -262,10 +262,29 @@ async function loadData() {
 
 // Peupler select jour
 function populateDaySelect(groups) {
+  const DAYS_ORDER = [
+    "Lundi",
+    "Mardi",
+    "Mercredi",
+    "Jeudi",
+    "Vendredi",
+    "Samedi",
+    "Dimanche",
+  ];
+
   const select = document.getElementById("day-select");
   select.innerHTML = "";
 
-  const days = Object.keys(groups[pavillon] || {}).sort();
+  const days = Object.keys(groups[pavillon] || {}).sort((a, b) => {
+    const ia = DAYS_ORDER.indexOf(a.toLowerCase());
+    const ib = DAYS_ORDER.indexOf(b.toLowerCase());
+
+    // Si un jour est inconnu, on le met à la fin
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+
+    return ia - ib;
+  });
   days.forEach((day) => {
     const option = document.createElement("option");
     option.value = day;
@@ -411,6 +430,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // Click sur local => modal
 document.addEventListener("click", (e) => {
   if (e.target.classList && e.target.classList.contains("local")) {
+    document.body.classList.add("modal-open");
     const localText = e.target.textContent;
     const local = localText.split(" x")[0];
 
@@ -436,10 +456,17 @@ document.addEventListener("click", (e) => {
     }
   }
 });
-
-document.getElementById("close-modal").addEventListener("click", () => {
+function closeModal() {
   document.getElementById("modal").style.display = "none";
+  document.body.classList.remove("modal-open");
+}
+document.getElementById("close-modal").addEventListener("click", () => {
+  closeModal();
 });
-
+document.getElementById("modal").addEventListener("click", (e) => {
+  if (e.target.id === "modal") {
+    closeModal();
+  }
+});
 // Chargement initial
 loadData();

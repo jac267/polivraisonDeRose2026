@@ -78,7 +78,11 @@ body {
   position: relative;
   overflow-x: hidden;
 }
-
+body.modal-open {
+  overflow: hidden;
+  height: 100vh;
+  touch-action: none; /* mobile */
+}
 /* scanlines (subtle, not noisy) */
 body::before {
   content: "";
@@ -263,7 +267,12 @@ h1 {
    PIXEL BUTTONS (online sprite, responsive)
    - Works on <button> and <select>
    =========================================== */
-
+.resume-slot {
+  width: 150px;
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+}
 .controls button,
 select {
   /* Typography: keep UX readable, but game-y */
@@ -273,6 +282,7 @@ select {
   letter-spacing: 0px;
   padding: 0px !important;
   text-align: center;
+  text-align-last: center;
   /* Reset native styles */
   border: 0;
   background: transparent;
