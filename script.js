@@ -17,6 +17,9 @@
 const csvUrl =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyYJT1wbXG7RO48tUyxCIcrXM45s_pl3Q-VRLzehz_zQV2UBBb9nCIUnCPDjtO8HhgublZihdiQlSd/pub?gid=914010777&single=true&output=tsv";
 
+const blockedLocalsUrl =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyYJT1wbXG7RO48tUyxCIcrXM45s_pl3Q-VRLzehz_zQV2UBBb9nCIUnCPDjtO8HhgublZihdiQlSd/pub?gid=909457365&single=true&output=tsv";
+
 const DELIVERY_API_URL =
   "https://script.google.com/macros/s/AKfycby4g4d8bo-xCjC4gYldvDMtG1ptqrVWgahRe9ORyaOmqcZ3t0emwNSFrgYxWNHd2Rpi/exec";
 
@@ -76,6 +79,7 @@ async function markDelivered(btn, row) {
 
 let data = [];
 let groups = {};
+let blockedSet = new Set();
 
 let pavillon = localStorage.getItem("pavillon") || "principal"; // 'principal' | 'lassonde' | 'other'
 document.getElementById(`pavillon-${pavillon}`).className = "active";
@@ -154,7 +158,9 @@ function parseCSV(csvText) {
   // ✅ IMPORTANT: idx + 2 => sheetRow (ligne 2 = première donnée)
   // ⚠️ HALLUCINATION RISK: valide seulement si ton TSV est la même feuille que celle
   // que ton Apps Script considère "Propre". Sinon, c’est juste un “row number” local.
-  return lines.slice(1).map((line, idx) => {
+  return lines
+    .slice(1)
+    .map((line, idx) => {
     const cols = parseCSVLine(line, separator);
 
     const sheetRow = idx + 2;
@@ -166,7 +172,8 @@ function parseCSV(csvText) {
     const quantite =
       quantiteIndex !== -1 ? parseInt(cols[quantiteIndex]?.trim(), 10) || 1 : 1;
 
-    const giver = giverIndex !== -1 ? cols[giverIndex]?.trim() || "N/A" : "N/A";
+    const giverRaw = giverIndex !== -1 ? cols[giverIndex]?.trim() || "N/A" : "N/A";
+    const giver = giverRaw;
     const receiver =
       receiverIndex !== -1 ? cols[receiverIndex]?.trim() || "N/A" : "N/A";
     const message =
@@ -188,6 +195,11 @@ function parseCSV(csvText) {
     const validee =
       valideeIndex !== -1 ? cols[valideeIndex]?.trim() || "N/A" : "N/A";
 
+    // Filtrer les ventes directes (Nom de l'acheteur = "vente direct")
+    if (String(giverRaw).trim().toLowerCase() === "vente direct") {
+      return null;
+    }
+
     return {
       sheetRow, // ✅ AJOUT
       local,
@@ -205,7 +217,49 @@ function parseCSV(csvText) {
       validee,
       livree,
     };
+  })
+  .filter(Boolean);
+}
+
+function parseBlockedCSV(csvText) {
+  const lines = splitCSVLines(csvText);
+  if (lines.length < 1) return new Set();
+
+  const firstLine = lines[0];
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semiCount = (firstLine.match(/;/g) || []).length;
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+
+  const separators = { ",": commaCount, ";": semiCount, "\t": tabCount };
+  const separator = Object.keys(separators).reduce((a, b) =>
+    separators[a] > separators[b] ? a : b,
+  );
+
+  const headers = parseCSVLine(firstLine, separator).map((h) =>
+    h.trim().toLowerCase(),
+  );
+
+  const localIndex = headers.findIndex((h) => h.includes("local"));
+  const jourIndex = headers.findIndex(
+    (h) => h.includes("jour") || h.includes("journ"),
+  );
+  const heureIndex = headers.findIndex((h) => h.includes("heure"));
+
+  if (localIndex === -1 || jourIndex === -1 || heureIndex === -1) {
+    throw new Error("Colonnes requises non trouvées dans le CSV (locaux bloqués).");
+  }
+
+  const set = new Set();
+  lines.slice(1).forEach((line) => {
+    const cols = parseCSVLine(line, separator);
+    const local = cols[localIndex]?.trim() || "";
+    const jour = cols[jourIndex]?.trim() || "";
+    const heure = cols[heureIndex]?.trim() || "";
+    if (!local || !jour || !heure) return;
+    set.add(makeBlockedKey(jour, heure, local));
   });
+
+  return set;
 }
 
 // Parse CSV/TSV line with custom separator (respects quotes)
@@ -269,6 +323,19 @@ function normalizeLocal(local) {
   return local.replace(/\s+/g, "");
 }
 
+function normalizeDayOrHour(value) {
+  return value.trim().toLowerCase();
+}
+
+function makeBlockedKey(jour, heure, local) {
+  const localKey = normalizeLocal(String(local || "")).toUpperCase();
+  return `${normalizeDayOrHour(jour)}||${normalizeDayOrHour(heure)}||${localKey}`;
+}
+
+function isBlocked(jour, heure, local) {
+  return blockedSet.has(makeBlockedKey(jour, heure, local));
+}
+
 // Extraire pavillon
 function getPavillon(local) {
   const letter = local.split("-")[0];
@@ -330,13 +397,24 @@ async function loadData() {
   try {
     document.getElementById("error-message").style.display = "none";
 
-    const response = await fetch(csvUrl);
-    if (!response.ok) throw new Error("Erreur réseau");
+    const [dataRes, blockedRes] = await Promise.all([
+      fetch(csvUrl),
+      fetch(blockedLocalsUrl),
+    ]);
 
-    const csvText = await response.text();
+    if (!dataRes.ok) throw new Error("Erreur réseau (données livraisons)");
+    if (!blockedRes.ok) throw new Error("Erreur réseau (locaux bloqués)");
+
+    const [csvText, blockedText] = await Promise.all([
+      dataRes.text(),
+      blockedRes.text(),
+    ]);
+
     console.log("CSV Text:", csvText);
+    console.log("Blocked TSV Text:", blockedText);
 
     data = parseCSV(csvText);
+    blockedSet = parseBlockedCSV(blockedText);
     console.log("Parsed data length:", data.length);
     console.log("First data item:", data[0]);
 
@@ -433,7 +511,11 @@ function displayData(groups) {
         const d = dayData[slot][local];
 
         const qty = d.qty;
-        return `<span class="local local-style ${allLivrees(d.rows) ? "done" : ""}">${qty > 1 ? `${local} x${qty}` : local}</span>`;
+        const blocked = isBlocked(selectedDay, slot, local);
+        const blockedBadge = blocked
+          ? `<span class="blocked-icon" title="Local bloqué (pas de livraison)">▲</span>`
+          : "";
+        return `<span class="local local-style ${allLivrees(d.rows) ? "done" : ""} ${blocked ? "blocked" : ""}">${qty > 1 ? `${local} x${qty}` : local}${blockedBadge}</span>`;
       })
       .join(" ");
 
@@ -647,6 +729,11 @@ document.addEventListener("click", (e) => {
     if (localData) {
       const modalBody = document.getElementById("modal-body");
       modalBody.innerHTML = `<h2>Détails pour ${local}</h2>`;
+
+      const blocked = isBlocked(selectedDay, slot, local);
+      if (blocked) {
+        modalBody.innerHTML += `<p class="blocked-warning">▲ Local bloqué: pas de livraison ici.</p>`;
+      }
 
       localData.rows.forEach((row) => {
         // ✅ IMPORTANT: on met data-row="${row.sheetRow}" pour retrouver l'objet.
