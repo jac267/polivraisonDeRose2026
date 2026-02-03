@@ -390,6 +390,11 @@ function populateDaySelect(groups) {
 function displayData(groups) {
   const content = document.getElementById("content");
   content.innerHTML = "";
+  const distribution = totalNumberByPavillon(groups, selectedDay);
+  document.getElementById("total-done-principal").textContent =
+    `${distribution.principal.livree}/${distribution.principal.total}`;
+  document.getElementById("total-done-lassonde").textContent =
+    `${distribution.lassonde.livree}/${distribution.lassonde.total}`;
 
   const pavData = groups[pavillon];
   if (!pavData || !pavData[selectedDay]) {
@@ -584,8 +589,10 @@ document.getElementById("pavillon-lassonde").addEventListener("click", () => {
 // Select jour + refresh
 document.getElementById("day-select").addEventListener("change", (e) => {
   selectedDay = e.target.value;
+
   if (data.length) {
     groups = groupData(data);
+
     displayData(groups);
   }
 });
@@ -594,6 +601,36 @@ document.addEventListener("DOMContentLoaded", () => {
   loadData();
 });
 
+function totalNumberByPavillon(groupsLot, selectedDay) {
+  output = {
+    principal: { total: 0, livree: 0 },
+    lassonde: { total: 0, livree: 0 },
+  };
+  let pavData = groupsLot["lassonde"];
+  try {
+    for (const [x, hourData] of Object.entries(pavData[selectedDay])) {
+      for (const localData of Object.entries(hourData)) {
+        for (const livraisonData of localData[1].rows) {
+          output["lassonde"].total += 1;
+          if (livraisonData.livree === "oui") output["lassonde"].livree += 1;
+        }
+      }
+    }
+  } catch (e) {}
+
+  pavData = groupsLot["principal"];
+  try {
+    for (const [x, hourData] of Object.entries(pavData[selectedDay])) {
+      for (const localData of Object.entries(hourData)) {
+        for (const livraisonData of localData[1].rows) {
+          output["principal"].total += 1;
+          if (livraisonData.livree === "oui") output["principal"].livree += 1;
+        }
+      }
+    }
+  } catch (e) {}
+  return output;
+}
 // Click sur local => modal
 document.addEventListener("click", (e) => {
   if (e.target.classList && e.target.classList.contains("local")) {

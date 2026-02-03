@@ -481,3 +481,26 @@ select {
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.35);
   color: var(--text);
 }
+
+.total-done {
+  position: relative;
+  width: 62.5%;
+  display: flex;
+  justify-content: space-around;
+  top: -20px;
+}
+
+#total-done-lassonde {
+  position: relative;
+  left: -6%;
+}
+
+#pinep-logo {
+  width: 75px;
+  height: 35px;
+}
+
+#header {
+  display: flex;
+  justify-content: space-between;
+}
