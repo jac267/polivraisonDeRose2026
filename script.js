@@ -324,12 +324,24 @@ function normalizeLocal(local) {
 }
 
 function normalizeDayOrHour(value) {
-  return value.trim().toLowerCase();
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeTimeRange(value) {
+  const raw = String(value || "").toLowerCase();
+  const matches = [...raw.matchAll(/(\d{1,2})\s*[h:]\s*(\d{2})/g)].map(
+    (m) => `${m[1].padStart(2, "0")}:${m[2]}`,
+  );
+  if (matches.length >= 2) return `${matches[0]}-${matches[matches.length - 1]}`;
+  if (matches.length === 1) return matches[0];
+  return raw.replace(/\s+/g, "");
 }
 
 function makeBlockedKey(jour, heure, local) {
   const localKey = normalizeLocal(String(local || "")).toUpperCase();
-  return `${normalizeDayOrHour(jour)}||${normalizeDayOrHour(heure)}||${localKey}`;
+  const dayKey = normalizeDayOrHour(jour);
+  const timeKey = normalizeTimeRange(heure);
+  return `${dayKey}||${timeKey}||${localKey}`;
 }
 
 function isBlocked(jour, heure, local) {
@@ -397,24 +409,29 @@ async function loadData() {
   try {
     document.getElementById("error-message").style.display = "none";
 
-    const [dataRes, blockedRes] = await Promise.all([
-      fetch(csvUrl),
-      fetch(blockedLocalsUrl),
-    ]);
-
+    const dataRes = await fetch(csvUrl);
     if (!dataRes.ok) throw new Error("Erreur réseau (données livraisons)");
-    if (!blockedRes.ok) throw new Error("Erreur réseau (locaux bloqués)");
+    const csvText = await dataRes.text();
 
-    const [csvText, blockedText] = await Promise.all([
-      dataRes.text(),
-      blockedRes.text(),
-    ]);
+    let blockedText = "";
+    try {
+      const blockedRes = await fetch(blockedLocalsUrl);
+      if (!blockedRes.ok) {
+        console.warn("Blocked TSV non disponible:", blockedRes.status);
+      } else {
+        blockedText = await blockedRes.text();
+      }
+    } catch (e) {
+      console.warn("Blocked TSV fetch error:", e);
+    }
 
     console.log("CSV Text:", csvText);
-    console.log("Blocked TSV Text:", blockedText);
+    if (blockedText) {
+      console.log("Blocked TSV Text:", blockedText);
+    }
 
     data = parseCSV(csvText);
-    blockedSet = parseBlockedCSV(blockedText);
+    blockedSet = blockedText ? parseBlockedCSV(blockedText) : new Set();
     console.log("Parsed data length:", data.length);
     console.log("First data item:", data[0]);
 
