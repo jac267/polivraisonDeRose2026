@@ -122,7 +122,7 @@ function parseCSV(csvText) {
   const giverIndex = headers.findIndex((h) => h.includes("acheteur"));
   const receiverIndex = headers.findIndex((h) => h.includes("destinataire"));
   const messageIndex = headers.findIndex((h) => h.includes("Demande spéciale"));
-  const nbrosesIndex = headers.findIndex((h) => h.includes("nbroses"));
+  const nbrosesIndex = headers.findIndex((h) => h.includes("(1, 2, 3, ...)"));
   const chocolatIndex = headers.findIndex((h) =>
     h.includes("entrez la sorte du chocolat acheté"),
   );
