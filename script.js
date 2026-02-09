@@ -676,8 +676,8 @@ function resumeTimeSlot(dayDataslot) {
       }
 
 
-      if (isChorale == "oui") output.chorale += 1;
-      if (isCarte == "Oui") output.cartes += 1;
+      if (isChorale.toLowerCase() == "oui") output.chorale += 1;
+      if (isCarte.toLowerCase() == "oui") output.cartes += 1;
     }
   }
   console.log("Output of resumeTimeSlot:", output);
@@ -745,7 +745,7 @@ function totalNumberByPavillon(groupsLot, selectedDay) {
           if (!seen.lassonde.has(key)) {
             seen.lassonde.add(key);
             output["lassonde"].total += 1;
-            if (livraisonData.livree === "oui") output["lassonde"].livree += 1;
+            if (livraisonData.livree.toLowerCase() === "oui") output["lassonde"].livree += 1;
           }
         }
       }
@@ -761,7 +761,7 @@ function totalNumberByPavillon(groupsLot, selectedDay) {
           if (!seen.principal.has(key)) {
             seen.principal.add(key);
             output["principal"].total += 1;
-            if (livraisonData.livree === "oui") output["principal"].livree += 1;
+            if (livraisonData.livree.toLowerCase() === "oui") output["principal"].livree += 1;
           }
         }
       }
@@ -794,22 +794,22 @@ document.addEventListener("click", (e) => {
       localData.rows.forEach((row) => {
         // ✅ IMPORTANT: on met data-row="${row.sheetRow}" pour retrouver l'objet.
         modalBody.innerHTML += `<div class="modal-div">
-          <button class="local-style validee ${row.livree == "oui" ? "check" : ""}"
+          <button class="local-style validee ${row.livree.toLowerCase() == "oui" ? "check" : ""}"
                   data-row="${row.sheetRow}"
                   onclick="validateGotCheck(this)">
-            ${row.livree == "oui" ? "Livrée ✅" : "Livrée ❌"}
+            ${row.livree.toLowerCase() == "oui" ? "Livrée ✅" : "Livrée ❌"}
           </button>
 
           <h3>Commande  ${
-            row.validee == "oui" ? "✅" : "❌(Non payée)"
-          }: ${row.nbroses}🌹 ${row.carte == "Oui" ? ", 1&nbsp;🎴" : ""} ${
+            row.validee.toLowerCase() == "oui" ? "✅" : "❌(Non payée)"
+          }: ${row.nbroses}🌹 ${row.carte.toLowerCase() == "oui" ? ", 1&nbsp;🎴" : ""} ${
             row.chocolat != "N/A"
               ? `, ${row.quantite}&nbsp;${row.chocolat}`
               : ""
           }${ row.chorale ? `, ${row.chorale}&nbsp;chorale` : "" }</h3>
 
           <p><strong>De:</strong> ${row.giver} ${
-            row.anonymous == "Oui"
+            row.anonymous.toLowerCase() == "oui"
               ? "<strong style='color: red;'>(ANONYME)</strong>"
               : ""
           }</p>
