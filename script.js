@@ -394,19 +394,26 @@ function groupData(data) {
 
     if (!groups[pav]) groups[pav] = {};
     if (!groups[pav][row.jour]) groups[pav][row.jour] = {};
-    if (!groups[pav][row.jour][row.heure])
-      groups[pav][row.jour][row.heure] = {};
+
+    // Une ligne peut contenir plusieurs plages horaires séparées par des virgules.
+    const slots = String(row.heure || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
     const local = normalizeLocal(row.local);
 
-    if (!groups[pav][row.jour][row.heure][local]) {
-      groups[pav][row.jour][row.heure][local] = { qty: 0, rows: [] };
-    }
+    slots.forEach((slot) => {
+      if (!groups[pav][row.jour][slot]) groups[pav][row.jour][slot] = {};
 
-    groups[pav][row.jour][row.heure][local].qty += row.quantite;
-    groups[pav][row.jour][row.heure][local].rows.push(row);
+      if (!groups[pav][row.jour][slot][local]) {
+        groups[pav][row.jour][slot][local] = { qty: 0, rows: [] };
+      }
+
+      groups[pav][row.jour][slot][local].qty += row.quantite;
+      groups[pav][row.jour][slot][local].rows.push(row);
+    });
   });
-
   return groups;
 }
 
@@ -647,12 +654,13 @@ function resumeTimeSlot(dayDataslot) {
   };
   for (const [local, data] of Object.entries(dayDataslot)) {
     for (const row of data.rows) {
+      
       const isCarte = row.carte;
       const isChocolat = row.chocolat;
       const nbChocolat = row.quantite;
       const nbRoses = row.nbroses;
       const isChorale = row.chorale;
-      console.log(isCarte, isChocolat, nbChocolat, nbRoses, isChorale);
+      
 
       try {
         if (nbRoses != "N/A") output.nbroses += parseInt(nbRoses);
@@ -720,17 +728,25 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function totalNumberByPavillon(groupsLot, selectedDay) {
-  output = {
+  const output = {
     principal: { total: 0, livree: 0 },
     lassonde: { total: 0, livree: 0 },
+  };
+  const seen = {
+    principal: new Set(),
+    lassonde: new Set(),
   };
   let pavData = groupsLot["lassonde"];
   try {
     for (const [x, hourData] of Object.entries(pavData[selectedDay])) {
       for (const localData of Object.entries(hourData)) {
         for (const livraisonData of localData[1].rows) {
-          output["lassonde"].total += 1;
-          if (livraisonData.livree === "oui") output["lassonde"].livree += 1;
+          const key = String(livraisonData.sheetRow ?? "");
+          if (!seen.lassonde.has(key)) {
+            seen.lassonde.add(key);
+            output["lassonde"].total += 1;
+            if (livraisonData.livree === "oui") output["lassonde"].livree += 1;
+          }
         }
       }
     }
@@ -741,8 +757,12 @@ function totalNumberByPavillon(groupsLot, selectedDay) {
     for (const [x, hourData] of Object.entries(pavData[selectedDay])) {
       for (const localData of Object.entries(hourData)) {
         for (const livraisonData of localData[1].rows) {
-          output["principal"].total += 1;
-          if (livraisonData.livree === "oui") output["principal"].livree += 1;
+          const key = String(livraisonData.sheetRow ?? "");
+          if (!seen.principal.has(key)) {
+            seen.principal.add(key);
+            output["principal"].total += 1;
+            if (livraisonData.livree === "oui") output["principal"].livree += 1;
+          }
         }
       }
     }
