@@ -15,10 +15,10 @@
  ****************************************************************************************/
 
 const csvUrl =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyYJT1wbXG7RO48tUyxCIcrXM45s_pl3Q-VRLzehz_zQV2UBBb9nCIUnCPDjtO8HhgublZihdiQlSd/pub?gid=914010777&single=true&output=tsv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTClhE-lNLDfgkfY8jin2cVjdjmZfftnUPVEPntDlcnSBkxpz5j7cIXnrypvSj1W0kRDR0TFygEAGPn/pub?gid=399718857&single=true&output=tsv";
 
 const blockedLocalsUrl =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQyYJT1wbXG7RO48tUyxCIcrXM45s_pl3Q-VRLzehz_zQV2UBBb9nCIUnCPDjtO8HhgublZihdiQlSd/pub?gid=909457365&single=true&output=tsv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTClhE-lNLDfgkfY8jin2cVjdjmZfftnUPVEPntDlcnSBkxpz5j7cIXnrypvSj1W0kRDR0TFygEAGPn/pub?gid=742565682&single=true&output=tsv";
 
 const DELIVERY_API_URL =
   "https://script.google.com/macros/s/AKfycby4g4d8bo-xCjC4gYldvDMtG1ptqrVWgahRe9ORyaOmqcZ3t0emwNSFrgYxWNHd2Rpi/exec";
@@ -133,6 +133,7 @@ function parseCSV(csvText) {
   const carteIndex = headers.findIndex((h) => h.includes("carte"));
   const valideeIndex = headers.findIndex((h) => h.includes("vérification"));
   const livreeIndex = headers.findIndex((h) => h.includes("livree"));
+  const choraleIndex = headers.findIndex((h) => h.includes("chorale"));
 
   console.log("Indices:", {
     localIndex,
@@ -149,6 +150,7 @@ function parseCSV(csvText) {
     instructionsIndex,
     carteIndex,
     valideeIndex,
+    choraleIndex
   });
 
   if (localIndex === -1 || jourIndex === -1 || heureIndex === -1) {
@@ -194,6 +196,9 @@ function parseCSV(csvText) {
 
     const validee =
       valideeIndex !== -1 ? cols[valideeIndex]?.trim() || "N/A" : "N/A";
+    
+    const chorale =
+      choraleIndex !== -1 ? cols[choraleIndex]?.trim() || "N/A" : "N/A";
 
     // Filtrer les ventes directes (Nom de l'acheteur = "vente direct")
     if (String(giverRaw).trim().toLowerCase() === "vente direct") {
@@ -216,6 +221,7 @@ function parseCSV(csvText) {
       carte,
       validee,
       livree,
+      chorale,
     };
   })
   .filter(Boolean);
@@ -431,13 +437,17 @@ async function loadData() {
     }
 
     data = parseCSV(csvText);
+    
     blockedSet = blockedText ? parseBlockedCSV(blockedText) : new Set();
     console.log("Parsed data length:", data.length);
     console.log("First data item:", data[0]);
 
     groups = groupData(data);
+    
     populateDaySelect(groups);
+    
     displayData(groups);
+    
   } catch (error) {
     const el = document.getElementById("error-message");
     el.innerHTML =
@@ -497,7 +507,7 @@ function displayData(groups) {
       '<p class="no-data">Aucune livraison pour ce filtre.</p>';
     return;
   }
-
+  
   const dayData = pavData[selectedDay];
   const timeSlots = Object.keys(dayData).sort(
     (a, b) => parseTimeKey(a) - parseTimeKey(b),
@@ -513,13 +523,16 @@ function displayData(groups) {
     const timeIntervale = slot.split("-");
     slotDiv.innerHTML = `<h3>${timeIntervale[0]}-${timeIntervale[timeIntervale.length - 1]}</h3>`;
     const resumeTimeSlotData = resumeTimeSlot(dayData[slot]);
+    console.log("Resume for slot", slot, resumeTimeSlotData.nbroses);
+   
     resumeDiv.className = "resume-slot";
     resumeDiv.innerHTML = `<p>  ${resumeTimeSlotData.nbroses}&nbsp;🌹 ${resumeTimeSlotData.cartes}&nbsp;💌</p>
                             <p>  ${resumeTimeSlotData.chocolat.Amandes != 0 ? `${resumeTimeSlotData.chocolat.Amandes}&nbsp;Almond` : ""}
                              ${resumeTimeSlotData.chocolat.Lait != 0 ? `${resumeTimeSlotData.chocolat.Lait}&nbsp;Milk` : ""}</p>
                             <p>  ${resumeTimeSlotData.chocolat["Noir Queen"] != 0 ? `${resumeTimeSlotData.chocolat["Noir Queen"]}&nbsp;Noir&nbsp;Queen` : ""}
-                              ${resumeTimeSlotData.chocolat["Sel de mer"] != 0 ? `${resumeTimeSlotData.chocolat["Sel de mer"]}&nbsp;Sel&nbsp;de&nbsp;mer` : ""}</p>`;
-
+                              ${resumeTimeSlotData.chocolat["Sel de mer"] != 0 ? `${resumeTimeSlotData.chocolat["Sel de mer"]}&nbsp;Sel&nbsp;de&nbsp;mer` : ""}</p>
+                              <p>  ${resumeTimeSlotData.chorale != 0 ? `${resumeTimeSlotData.chorale}&nbsp;chorale` : ""}</p>`;
+  
     const locals = Object.keys(dayData[slot]);
     const sortedLocals = sortLocals(locals);
 
@@ -630,6 +643,7 @@ function resumeTimeSlot(dayDataslot) {
     nbroses: 0,
     chocolat: { Lait: 0, "Noir Queen": 0, Amandes: 0, "Sel de mer": 0 },
     cartes: 0,
+    chorale: 0,
   };
   for (const [local, data] of Object.entries(dayDataslot)) {
     for (const row of data.rows) {
@@ -637,6 +651,8 @@ function resumeTimeSlot(dayDataslot) {
       const isChocolat = row.chocolat;
       const nbChocolat = row.quantite;
       const nbRoses = row.nbroses;
+      const isChorale = row.chorale;
+      console.log(isCarte, isChocolat, nbChocolat, nbRoses, isChorale);
 
       try {
         if (nbRoses != "N/A") output.nbroses += parseInt(nbRoses);
@@ -651,9 +667,12 @@ function resumeTimeSlot(dayDataslot) {
         console.log("Nb of chocolates was not a parseable");
       }
 
+
+      if (isChorale == "oui") output.chorale += 1;
       if (isCarte == "Oui") output.cartes += 1;
     }
   }
+  console.log("Output of resumeTimeSlot:", output);
   return output;
 }
 
@@ -767,7 +786,7 @@ document.addEventListener("click", (e) => {
             row.chocolat != "N/A"
               ? `, ${row.quantite}&nbsp;${row.chocolat}`
               : ""
-          }</h3>
+          }${ row.chorale ? `, ${row.chorale}&nbsp;chorale` : "" }</h3>
 
           <p><strong>De:</strong> ${row.giver} ${
             row.anonymous == "Oui"
