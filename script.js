@@ -625,17 +625,22 @@ async function validateGotCheck(btn) {
   btn.textContent = "Envoi...";
 
   try {
-    await logDelivery(rowObj, action);
+    
 
     if (action === "delivered") {
       btn.classList.add("check");
       btn.textContent = "Livrée✅";
+      logDelivery(rowObj, action);
       rowObj.livree = "oui"; // sync local
+      displayData(groups);
     } else {
       btn.classList.remove("check");
       btn.textContent = "Livrée❌";
+      logDelivery(rowObj, action);
       rowObj.livree = "non"; // sync local
+      displayData(groups);
     }
+    
   } catch (e) {
     btn.textContent = old;
     alert("Erreur envoi: " + (e?.message || e));
